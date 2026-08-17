@@ -1,0 +1,917 @@
+-- LOST HUB
+-- Single LocalScript
+-- Place in StarterPlayer > StarterPlayerScripts
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+
+local Player = Players.LocalPlayer
+local PlayerGui = Player:WaitForChild("PlayerGui")
+
+local KEY = "losthub1234"
+
+local Character
+local Humanoid
+local Root
+
+local Fly = false
+local NoClip = false
+local AntiFling = false
+local ESP = false
+local FlySpeed = 60
+
+local Waypoints = {}
+local ESPObjects = {}
+
+local function characterLoaded()
+	Character = Player.Character or Player.CharacterAdded:Wait()
+	Humanoid = Character:WaitForChild("Humanoid")
+	Root = Character:WaitForChild("HumanoidRootPart")
+end
+
+characterLoaded()
+
+Player.CharacterAdded:Connect(function()
+	task.wait(.5)
+	characterLoaded()
+end)
+
+--==================================================
+-- THEME
+--==================================================
+
+local BLACK = Color3.fromRGB(7,7,7)
+local PANEL = Color3.fromRGB(13,13,13)
+local BUTTON = Color3.fromRGB(20,20,20)
+local WHITE = Color3.fromRGB(255,255,255)
+local GREY = Color3.fromRGB(155,155,155)
+local RED = Color3.fromRGB(255,55,55)
+local GREEN = Color3.fromRGB(80,255,120)
+
+--==================================================
+-- GUI
+--==================================================
+
+local Gui = Instance.new("ScreenGui")
+Gui.Name = "LostHub"
+Gui.ResetOnSpawn = false
+Gui.IgnoreGuiInset = true
+Gui.Parent = PlayerGui
+
+local function corner(obj, radius)
+	local c = Instance.new("UICorner")
+	c.CornerRadius = UDim.new(0,radius)
+	c.Parent = obj
+end
+
+local function outline(obj, thickness)
+	local s = Instance.new("UIStroke")
+	s.Color = WHITE
+	s.Thickness = thickness or 1
+	s.Transparency = .15
+	s.Parent = obj
+end
+
+local function makeButton(parent,text,x,y,w,h)
+	local b = Instance.new("TextButton")
+	b.Size = UDim2.fromOffset(w,h)
+	b.Position = UDim2.fromOffset(x,y)
+	b.BackgroundColor3 = BUTTON
+	b.BorderSizePixel = 0
+	b.Text = text
+	b.TextColor3 = WHITE
+	b.TextSize = 12
+	b.Font = Enum.Font.Code
+	b.AutoButtonColor = false
+	b.Parent = parent
+
+	corner(b,6)
+	outline(b,1)
+
+	b.MouseEnter:Connect(function()
+		b.BackgroundColor3 = Color3.fromRGB(35,35,35)
+	end)
+
+	b.MouseLeave:Connect(function()
+		b.BackgroundColor3 = BUTTON
+	end)
+
+	return b
+end
+
+local function draggable(frame,handle)
+
+	local dragging = false
+	local start
+	local position
+
+	handle.Active = true
+
+	handle.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1
+			or input.UserInputType == Enum.UserInputType.Touch then
+
+			dragging = true
+			start = input.Position
+			position = frame.Position
+		end
+	end)
+
+	UserInputService.InputChanged:Connect(function(input)
+
+		if not dragging then return end
+
+		if input.UserInputType == Enum.UserInputType.MouseMovement
+			or input.UserInputType == Enum.UserInputType.Touch then
+
+			local delta = input.Position - start
+
+			frame.Position = UDim2.new(
+				position.X.Scale,
+				position.X.Offset + delta.X,
+				position.Y.Scale,
+				position.Y.Offset + delta.Y
+			)
+		end
+	end)
+
+	UserInputService.InputEnded:Connect(function(input)
+
+		if input.UserInputType == Enum.UserInputType.MouseButton1
+			or input.UserInputType == Enum.UserInputType.Touch then
+
+			dragging = false
+		end
+	end)
+end
+
+--==================================================
+-- KEY SCREEN
+--==================================================
+
+local KeyFrame = Instance.new("Frame")
+KeyFrame.Size = UDim2.fromOffset(430,270)
+KeyFrame.Position = UDim2.new(.5,-215,.5,-135)
+KeyFrame.BackgroundColor3 = BLACK
+KeyFrame.BorderSizePixel = 0
+KeyFrame.Parent = Gui
+
+corner(KeyFrame,10)
+outline(KeyFrame,2)
+
+local KeyHeader = Instance.new("TextButton")
+KeyHeader.Size = UDim2.new(1,0,0,60)
+KeyHeader.BackgroundColor3 = PANEL
+KeyHeader.BorderSizePixel = 0
+KeyHeader.Text = "LOST HUB"
+KeyHeader.TextColor3 = WHITE
+KeyHeader.TextSize = 25
+KeyHeader.Font = Enum.Font.Code
+KeyHeader.AutoButtonColor = false
+KeyHeader.Parent = KeyFrame
+
+corner(KeyHeader,10)
+draggable(KeyFrame,KeyHeader)
+
+local subtitle = Instance.new("TextLabel")
+subtitle.Size = UDim2.new(1,0,0,25)
+subtitle.Position = UDim2.fromOffset(0,70)
+subtitle.BackgroundTransparency = 1
+subtitle.Text = "SECURE ACCESS TERMINAL"
+subtitle.TextColor3 = GREY
+subtitle.Font = Enum.Font.Code
+subtitle.TextSize = 12
+subtitle.Parent = KeyFrame
+
+local KeyBox = Instance.new("TextBox")
+KeyBox.Size = UDim2.new(1,-60,0,42)
+KeyBox.Position = UDim2.fromOffset(30,105)
+KeyBox.BackgroundColor3 = Color3.fromRGB(12,12,12)
+KeyBox.BorderSizePixel = 0
+KeyBox.Text = ""
+KeyBox.PlaceholderText = "Enter access key..."
+KeyBox.PlaceholderColor3 = GREY
+KeyBox.TextColor3 = WHITE
+KeyBox.TextSize = 14
+KeyBox.Font = Enum.Font.Code
+KeyBox.ClearTextOnFocus = false
+KeyBox.Parent = KeyFrame
+
+corner(KeyBox,6)
+outline(KeyBox,1)
+
+local Access = makeButton(
+	KeyFrame,
+	"[ ACCESS ]",
+	30,158,370,42
+)
+
+local KeyStatus = Instance.new("TextLabel")
+KeyStatus.Size = UDim2.new(1,0,0,25)
+KeyStatus.Position = UDim2.fromOffset(0,215)
+KeyStatus.BackgroundTransparency = 1
+KeyStatus.Text = "STATUS: WAITING"
+KeyStatus.TextColor3 = GREY
+KeyStatus.Font = Enum.Font.Code
+KeyStatus.TextSize = 12
+KeyStatus.Parent = KeyFrame
+
+--==================================================
+-- MAIN WINDOW
+--==================================================
+
+local Main = Instance.new("Frame")
+Main.Size = UDim2.fromOffset(760,560)
+Main.Position = UDim2.new(.5,-380,.5,-280)
+Main.BackgroundColor3 = BLACK
+Main.BorderSizePixel = 0
+Main.Visible = false
+Main.Parent = Gui
+
+corner(Main,10)
+outline(Main,2)
+
+local Header = Instance.new("Frame")
+Header.Size = UDim2.new(1,0,0,60)
+Header.BackgroundColor3 = PANEL
+Header.BorderSizePixel = 0
+Header.Parent = Main
+
+corner(Header,10)
+draggable(Main,Header)
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1,-120,1,0)
+Title.Position = UDim2.fromOffset(20,0)
+Title.BackgroundTransparency = 1
+Title.Text = "LOST HUB"
+Title.TextColor3 = WHITE
+Title.TextSize = 24
+Title.Font = Enum.Font.Code
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = Header
+
+local Minimize = makeButton(Header,"—",0,10,35,35)
+Minimize.Position = UDim2.new(1,-90,0,10)
+
+local Close = makeButton(Header,"×",0,10,35,35)
+Close.Position = UDim2.new(1,-45,0,10)
+
+local Content = Instance.new("Frame")
+Content.Size = UDim2.new(1,-40,1,-80)
+Content.Position = UDim2.fromOffset(20,70)
+Content.BackgroundTransparency = 1
+Content.Parent = Main
+
+--==================================================
+-- PLAYER INFO
+--==================================================
+
+local Avatar = Instance.new("ImageLabel")
+Avatar.Size = UDim2.fromOffset(42,42)
+Avatar.Position = UDim2.fromOffset(0,0)
+Avatar.BackgroundTransparency = 1
+Avatar.Parent = Content
+corner(Avatar,50)
+
+task.spawn(function()
+	local ok,img = pcall(function()
+		return Players:GetUserThumbnailAsync(
+			Player.UserId,
+			Enum.ThumbnailType.HeadShot,
+			Enum.ThumbnailSize.Size100x100
+		)
+	end)
+
+	if ok then Avatar.Image = img end
+end)
+
+local UserName = Instance.new("TextLabel")
+UserName.Size = UDim2.fromOffset(250,25)
+UserName.Position = UDim2.fromOffset(55,0)
+UserName.BackgroundTransparency = 1
+UserName.Text = Player.DisplayName
+UserName.TextColor3 = WHITE
+UserName.TextSize = 14
+UserName.Font = Enum.Font.Code
+UserName.TextXAlignment = Enum.TextXAlignment.Left
+UserName.Parent = Content
+
+local FPS = Instance.new("TextLabel")
+FPS.Size = UDim2.fromOffset(120,25)
+FPS.Position = UDim2.new(1,-120,0,10)
+FPS.BackgroundTransparency = 1
+FPS.Text = "FPS: --"
+FPS.TextColor3 = GREY
+FPS.TextSize = 13
+FPS.Font = Enum.Font.Code
+FPS.Parent = Content
+
+--==================================================
+-- SECTION
+--==================================================
+
+local function section(name,x,y,w,h)
+
+	local f = Instance.new("Frame")
+	f.Size = UDim2.fromOffset(w,h)
+	f.Position = UDim2.fromOffset(x,y)
+	f.BackgroundColor3 = PANEL
+	f.BorderSizePixel = 0
+	f.Parent = Content
+
+	corner(f,8)
+	outline(f,1)
+
+	local t = Instance.new("TextLabel")
+	t.Size = UDim2.new(1,-20,0,30)
+	t.Position = UDim2.fromOffset(10,5)
+	t.BackgroundTransparency = 1
+	t.Text = name
+	t.TextColor3 = WHITE
+	t.TextSize = 13
+	t.Font = Enum.Font.Code
+	t.TextXAlignment = Enum.TextXAlignment.Left
+	t.Parent = f
+
+	return f
+end
+
+--==================================================
+-- MOVEMENT
+--==================================================
+
+local Movement = section("MOVEMENT",0,60,350,170)
+
+local FlyButton = makeButton(Movement,"FLY : OFF",15,45,150,40)
+local NoclipButton = makeButton(Movement,"NO CLIP : OFF",180,45,150,40)
+
+local SpeedBox = Instance.new("TextBox")
+SpeedBox.Size = UDim2.fromOffset(150,40)
+SpeedBox.Position = UDim2.fromOffset(15,100)
+SpeedBox.BackgroundColor3 = BUTTON
+SpeedBox.BorderSizePixel = 0
+SpeedBox.Text = "60"
+SpeedBox.TextColor3 = WHITE
+SpeedBox.TextSize = 13
+SpeedBox.Font = Enum.Font.Code
+SpeedBox.Parent = Movement
+
+corner(SpeedBox,6)
+outline(SpeedBox,1)
+
+local SetSpeed = makeButton(
+	Movement,"SET SPEED",180,100,150,40
+)
+
+--==================================================
+-- PROTECTION
+--==================================================
+
+local Protection = section("PROTECTION",370,60,350,170)
+
+local AntiButton = makeButton(
+	Protection,
+	"ANTI FLINCH / FLING : OFF",
+	15,45,315,40
+)
+
+local ProtectionInfo = Instance.new("TextLabel")
+ProtectionInfo.Size = UDim2.new(1,-30,0,55)
+ProtectionInfo.Position = UDim2.fromOffset(15,100)
+ProtectionInfo.BackgroundTransparency = 1
+ProtectionInfo.Text = "Protects against local physics\nvelocity and ragdoll effects."
+ProtectionInfo.TextColor3 = GREY
+ProtectionInfo.TextSize = 11
+ProtectionInfo.Font = Enum.Font.Code
+ProtectionInfo.TextXAlignment = Enum.TextXAlignment.Left
+ProtectionInfo.Parent = Protection
+
+--==================================================
+-- VISUALS
+--==================================================
+
+local Visuals = section("VISUALS",0,245,350,170)
+
+local ESPButton = makeButton(
+	Visuals,
+	"PLAYER ESP : OFF",
+	15,45,315,40
+)
+
+local VisualInfo = Instance.new("TextLabel")
+VisualInfo.Size = UDim2.new(1,-30,0,55)
+VisualInfo.Position = UDim2.fromOffset(15,100)
+VisualInfo.BackgroundTransparency = 1
+VisualInfo.Text = "Red player outline + name tag."
+VisualInfo.TextColor3 = GREY
+VisualInfo.TextSize = 11
+VisualInfo.Font = Enum.Font.Code
+VisualInfo.TextXAlignment = Enum.TextXAlignment.Left
+VisualInfo.Parent = Visuals
+
+--==================================================
+-- WAYPOINTS
+--==================================================
+
+local WaypointSection = section("WAYPOINTS",370,245,350,170)
+
+local WaypointOpen = makeButton(
+	WaypointSection,
+	"OPEN MANAGER",
+	15,45,150,40
+)
+
+local WaypointSave = makeButton(
+	WaypointSection,
+	"SAVE POSITION",
+	180,45,150,40
+)
+
+local WaypointInfo = Instance.new("TextLabel")
+WaypointInfo.Size = UDim2.new(1,-30,0,55)
+WaypointInfo.Position = UDim2.fromOffset(15,100)
+WaypointInfo.BackgroundTransparency = 1
+WaypointInfo.Text = "No waypoints saved."
+WaypointInfo.TextColor3 = GREY
+WaypointInfo.TextSize = 11
+WaypointInfo.Font = Enum.Font.Code
+WaypointInfo.TextXAlignment = Enum.TextXAlignment.Left
+WaypointInfo.Parent = WaypointSection
+
+--==================================================
+-- GAME / TEST
+--==================================================
+
+local GameSection = section("GAME / TEST",0,430,720,75)
+
+local MoneyInfo = Instance.new("TextLabel")
+MoneyInfo.Size = UDim2.fromOffset(300,40)
+MoneyInfo.Position = UDim2.fromOffset(15,20)
+MoneyInfo.BackgroundTransparency = 1
+MoneyInfo.Text = "TEST MONEY\nFor your own game's currency system."
+MoneyInfo.TextColor3 = GREY
+MoneyInfo.TextSize = 10
+MoneyInfo.Font = Enum.Font.Code
+MoneyInfo.TextXAlignment = Enum.TextXAlignment.Left
+MoneyInfo.Parent = GameSection
+
+local MoneyButton = makeButton(
+	GameSection,
+	"TEST MONEY",
+	520,18,180,40
+)
+
+MoneyButton.MouseButton1Click:Connect(function()
+	MoneyInfo.Text =
+		"TEST MONEY\nUse your game's server-side currency system."
+end)
+
+--==================================================
+-- WAYPOINT WINDOW
+--==================================================
+
+local WayWindow = Instance.new("Frame")
+WayWindow.Size = UDim2.fromOffset(340,390)
+WayWindow.Position = UDim2.new(.5,-170,.5,-195)
+WayWindow.BackgroundColor3 = BLACK
+WayWindow.BorderSizePixel = 0
+WayWindow.Visible = false
+WayWindow.ZIndex = 50
+WayWindow.Parent = Gui
+
+corner(WayWindow,10)
+outline(WayWindow,2)
+
+local WayHeader = Instance.new("Frame")
+WayHeader.Size = UDim2.new(1,0,0,55)
+WayHeader.BackgroundColor3 = PANEL
+WayHeader.BorderSizePixel = 0
+WayHeader.ZIndex = 51
+WayHeader.Parent = WayWindow
+
+corner(WayHeader,10)
+draggable(WayWindow,WayHeader)
+
+local WayTitle = Instance.new("TextLabel")
+WayTitle.Size = UDim2.new(1,-90,1,0)
+WayTitle.Position = UDim2.fromOffset(15,0)
+WayTitle.BackgroundTransparency = 1
+WayTitle.Text = "WAYPOINT MANAGER"
+WayTitle.TextColor3 = WHITE
+WayTitle.TextSize = 15
+WayTitle.Font = Enum.Font.Code
+WayTitle.TextXAlignment = Enum.TextXAlignment.Left
+WayTitle.ZIndex = 52
+WayTitle.Parent = WayHeader
+
+local WayMin = makeButton(WayHeader,"—",0,10,30,32)
+WayMin.Position = UDim2.new(1,-75,0,10)
+WayMin.ZIndex = 52
+
+local WayClose = makeButton(WayHeader,"×",0,10,30,32)
+WayClose.Position = UDim2.new(1,-38,0,10)
+WayClose.ZIndex = 52
+
+local WayList = Instance.new("ScrollingFrame")
+WayList.Size = UDim2.new(1,-30,1,-70)
+WayList.Position = UDim2.fromOffset(15,65)
+WayList.BackgroundTransparency = 1
+WayList.BorderSizePixel = 0
+WayList.ScrollBarThickness = 3
+WayList.ZIndex = 51
+WayList.Parent = WayWindow
+
+local List = Instance.new("UIListLayout")
+List.Padding = UDim.new(0,7)
+List.Parent = WayList
+
+local WayMinimized = false
+
+local function refreshWaypoints()
+
+	for _,obj in ipairs(WayList:GetChildren()) do
+		if obj:IsA("TextButton") then
+			obj:Destroy()
+		end
+	end
+
+	local count = 0
+
+	for name,pos in pairs(Waypoints) do
+
+		count += 1
+
+		local Teleport = makeButton(
+			WayList,
+			"→ "..name,
+			0,0,300,40
+		)
+
+		Teleport.ZIndex = 52
+
+		Teleport.MouseButton1Click:Connect(function()
+
+			if Root then
+				Root.CFrame = CFrame.new(pos + Vector3.new(0,3,0))
+				WaypointInfo.Text = "Teleported to "..name
+			end
+
+		end)
+	end
+
+	WayList.CanvasSize = UDim2.fromOffset(0,count*47)
+end
+
+WaypointOpen.MouseButton1Click:Connect(function()
+	WayWindow.Visible = true
+end)
+
+WaypointSave.MouseButton1Click:Connect(function()
+
+	if Root then
+
+		local name = "Waypoint "..(#Waypoints+1)
+
+		Waypoints[name] = Root.Position
+
+		WaypointInfo.Text = "Saved "..name
+
+		refreshWaypoints()
+	end
+end)
+
+WayMin.MouseButton1Click:Connect(function()
+
+	WayMinimized = not WayMinimized
+
+	if WayMinimized then
+		WayWindow.Size = UDim2.fromOffset(340,55)
+		WayList.Visible = false
+		WayMin.Text = "+"
+	else
+		WayWindow.Size = UDim2.fromOffset(340,390)
+		WayList.Visible = true
+		WayMin.Text = "—"
+	end
+end)
+
+WayClose.MouseButton1Click:Connect(function()
+	WayWindow.Visible = false
+end)
+
+--==================================================
+-- MAIN MINIMISE
+--==================================================
+
+local MainMinimized = false
+
+Minimize.MouseButton1Click:Connect(function()
+
+	MainMinimized = not MainMinimized
+
+	if MainMinimized then
+		Content.Visible = false
+		Main.Size = UDim2.fromOffset(760,60)
+		Minimize.Text = "+"
+	else
+		Content.Visible = true
+		Main.Size = UDim2.fromOffset(760,560)
+		Minimize.Text = "—"
+	end
+end)
+
+Close.MouseButton1Click:Connect(function()
+	Main.Visible = false
+	WayWindow.Visible = false
+end)
+
+--==================================================
+-- FLY
+--==================================================
+
+FlyButton.MouseButton1Click:Connect(function()
+
+	Fly = not Fly
+
+	FlyButton.Text = Fly and "FLY : ON" or "FLY : OFF"
+
+	if not Fly and Root then
+		Root.AssemblyLinearVelocity = Vector3.zero
+	end
+end)
+
+SetSpeed.MouseButton1Click:Connect(function()
+
+	local value = tonumber(SpeedBox.Text)
+
+	if value then
+		FlySpeed = math.clamp(value,1,500)
+		SpeedBox.Text = tostring(FlySpeed)
+	end
+end)
+
+RunService.RenderStepped:Connect(function()
+
+	if not Fly or not Root then return end
+
+	local camera = workspace.CurrentCamera
+	local direction = Vector3.zero
+
+	if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+		direction += camera.CFrame.LookVector
+	end
+
+	if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+		direction -= camera.CFrame.LookVector
+	end
+
+	if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+		direction -= camera.CFrame.RightVector
+	end
+
+	if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+		direction += camera.CFrame.RightVector
+	end
+
+	if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+		direction += Vector3.new(0,1,0)
+	end
+
+	if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+		direction -= Vector3.new(0,1,0)
+	end
+
+	if direction.Magnitude > 0 then
+		direction = direction.Unit
+	end
+
+	Root.AssemblyLinearVelocity = direction * FlySpeed
+end)
+
+--==================================================
+-- NOCLIP
+--==================================================
+
+NoclipButton.MouseButton1Click:Connect(function()
+
+	NoClip = not NoClip
+
+	NoclipButton.Text =
+		NoClip and "NO CLIP : ON" or "NO CLIP : OFF"
+end)
+
+RunService.Stepped:Connect(function()
+
+	if NoClip and Character then
+
+		for _,obj in ipairs(Character:GetDescendants()) do
+
+			if obj:IsA("BasePart") then
+				obj.CanCollide = false
+			end
+		end
+	end
+end)
+
+--==================================================
+-- ANTI FLING
+--==================================================
+
+AntiButton.MouseButton1Click:Connect(function()
+
+	AntiFling = not AntiFling
+
+	AntiButton.Text =
+		AntiFling
+		and "ANTI FLINCH / FLING : ON"
+		or "ANTI FLINCH / FLING : OFF"
+
+end)
+
+RunService.Heartbeat:Connect(function()
+
+	if not AntiFling or not Root or not Humanoid then
+		return
+	end
+
+	-- Prevent extreme local velocity spikes.
+	local velocity = Root.AssemblyLinearVelocity
+
+	if velocity.Magnitude > 120 then
+		Root.AssemblyLinearVelocity =
+			Vector3.new(0,math.clamp(velocity.Y,-50,50),0)
+	end
+
+	-- Recover from local ragdoll/falling states.
+	local state = Humanoid:GetState()
+
+	if state == Enum.HumanoidStateType.Ragdoll
+		or state == Enum.HumanoidStateType.FallingDown then
+
+		Humanoid:ChangeState(
+			Enum.HumanoidStateType.GettingUp
+		)
+	end
+end)
+
+--==================================================
+-- ESP
+--==================================================
+
+local function removeESP(player)
+
+	if ESPObjects[player] then
+
+		for _,obj in ipairs(ESPObjects[player]) do
+			if obj then
+				obj:Destroy()
+			end
+		end
+
+		ESPObjects[player] = nil
+	end
+end
+
+local function addESP(player)
+
+	if player == Player or not ESP then
+		return
+	end
+
+	local char = player.Character
+	if not char then return end
+
+	removeESP(player)
+
+	local highlight = Instance.new("Highlight")
+	highlight.Adornee = char
+	highlight.FillColor = RED
+	highlight.OutlineColor = RED
+	highlight.FillTransparency = .8
+	highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	highlight.Parent = Gui
+
+	local tag
+
+	local head = char:FindFirstChild("Head")
+
+	if head then
+
+		tag = Instance.new("BillboardGui")
+		tag.Adornee = head
+		tag.Size = UDim2.fromOffset(160,30)
+		tag.StudsOffset = Vector3.new(0,2.5,0)
+		tag.AlwaysOnTop = true
+		tag.Parent = Gui
+
+		local text = Instance.new("TextLabel")
+		text.Size = UDim2.fromScale(1,1)
+		text.BackgroundTransparency = 1
+		text.Text = player.DisplayName
+		text.TextColor3 = RED
+		text.TextStrokeTransparency = 0
+		text.Font = Enum.Font.Code
+		text.TextSize = 13
+		text.Parent = tag
+	end
+
+	ESPObjects[player] = {highlight,tag}
+end
+
+ESPButton.MouseButton1Click:Connect(function()
+
+	ESP = not ESP
+
+	ESPButton.Text =
+		ESP and "PLAYER ESP : ON" or "PLAYER ESP : OFF"
+
+	if ESP then
+
+		for _,p in ipairs(Players:GetPlayers()) do
+			addESP(p)
+		end
+
+	else
+
+		for p in pairs(ESPObjects) do
+			removeESP(p)
+		end
+	end
+end)
+
+Players.PlayerAdded:Connect(function(p)
+
+	p.CharacterAdded:Connect(function()
+
+		task.wait(1)
+
+		if ESP then
+			addESP(p)
+		end
+	end)
+end)
+
+Players.PlayerRemoving:Connect(removeESP)
+
+--==================================================
+-- FPS
+--==================================================
+
+local frames = 0
+local last = os.clock()
+
+RunService.RenderStepped:Connect(function()
+
+	frames += 1
+
+	if os.clock()-last >= 1 then
+		FPS.Text = "FPS: "..frames
+		frames = 0
+		last = os.clock()
+	end
+end)
+
+--==================================================
+-- KEY
+--==================================================
+
+local function checkKey()
+
+	local entered =
+		KeyBox.Text:gsub("%s+",""):lower()
+
+	if entered == KEY then
+
+		KeyStatus.Text = "STATUS: ACCESS GRANTED"
+		KeyStatus.TextColor3 = GREEN
+
+		task.wait(.3)
+
+		KeyFrame.Visible = false
+		Main.Visible = true
+
+	else
+
+		KeyStatus.Text = "STATUS: INVALID KEY"
+		KeyStatus.TextColor3 = RED
+
+		task.wait(.6)
+
+		KeyStatus.Text = "STATUS: WAITING"
+		KeyStatus.TextColor3 = GREY
+	end
+end
+
+Access.MouseButton1Click:Connect(checkKey)
+
+KeyBox.FocusLost:Connect(function(enterPressed)
+
+	if enterPressed then
+		checkKey()
+	end
+end)
+
+print("LOST HUB LOADED")
